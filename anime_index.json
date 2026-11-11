@@ -1,6 +1,7 @@
 [
   {
     "name": "Eporner",
+    "id": 123456789,
     "lang": "en",
     "baseUrl": "https://www.eporner.com",
     "apiUrl": "",
@@ -9,7 +10,9 @@
     "itemType": 1,
     "version": "1.0.0",
     "isNsfw": true,
+    "isManga": false,
     "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/anime/src/en/eporner.js",
-    "sourceCodeLanguage": 1
+    "sourceCodeLanguage": 1,
+    "appMinVerReq": "0.5.0"
   }
 ]
