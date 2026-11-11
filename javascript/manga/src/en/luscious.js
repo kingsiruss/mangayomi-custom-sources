@@ -2,11 +2,11 @@ const mangayomiSources = [{
     "name": "Luscious",
     "lang": "en",
     "baseUrl": "https://www.luscious.net",
-    "apiUrl": "https://api.luscious.net/graphql/nobatch/",
+    "apiUrl": "https://members.luscious.net/graphql/nobatch/",
     "iconUrl": "https://www.luscious.net/favicon.ico",
     "typeSource": "single",
     "itemType": 0,
-    "version": "1.0.1",
+    "version": "1.0.2",
     "isNsfw": true,
     "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/manga/src/en/luscious.js",
     "sourceCodeLanguage": 1
@@ -15,17 +15,23 @@ const mangayomiSources = [{
 class DefaultExtension extends MProvider {
     getHeaders() {
         return {
-            "Referer": "https://www.luscious.net/",
+            "Referer": "https://members.luscious.net/",
             "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json"
+            "Accept": "application/json",
+            "Origin": "https://members.luscious.net"
         };
     }
 
     async graphql(operationName, query, variables = {}) {
         const body = JSON.stringify({ operationName, query, variables });
-        const res = await new Client().post(this.source.apiUrl, this.getHeaders(), body);
-        return JSON.parse(res.body);
+        const url = this.source.apiUrl + "?operationName=" + encodeURIComponent(operationName);
+        const res = await new Client().post(url, this.getHeaders(), body);
+        const text = res.body || "";
+        if (text.trim().startsWith("<")) {
+            throw new Error("Luscious API returned HTML (blocked or wrong endpoint). Body starts with: " + text.substring(0, 80));
+        }
+        return JSON.parse(text);
     }
 
     async getPopular(page) {
