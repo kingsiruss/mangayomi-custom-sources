@@ -1,0 +1,15 @@
+[
+  {
+    "name": "Luscious",
+    "lang": "en",
+    "baseUrl": "https://www.luscious.net",
+    "apiUrl": "https://www.luscious.net/graphql/nobatch/",
+    "iconUrl": "https://www.luscious.net/favicon.ico",
+    "typeSource": "single",
+    "itemType": 0,
+    "version": "1.0.0",
+    "isNsfw": true,
+    "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/manga/src/en/luscious.js",
+    "sourceCodeLanguage": 1
+  }
+]
