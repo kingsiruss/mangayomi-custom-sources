@@ -6,7 +6,7 @@ const mangayomiSources = [{
     "iconUrl": "https://www.eporner.com/favicon.ico",
     "typeSource": "single",
     "itemType": 1,
-    "version": "1.0.1",
+    "version": "1.0.2",
     "isNsfw": true,
     "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/anime/src/en/eporner.js",
     "sourceCodeLanguage": 1
@@ -18,6 +18,15 @@ class DefaultExtension extends MProvider {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Referer": "https://www.eporner.com/"
         };
+    }
+
+    calcHash(hex) {
+        let result = "";
+        for (let i = 0; i < 32; i += 8) {
+            const num = parseInt(hex.substr(i, 8), 16);
+            result += num.toString(36);
+        }
+        return result;
     }
 
     async apiSearch(query, page, order = "most-popular") {
@@ -65,26 +74,41 @@ class DefaultExtension extends MProvider {
     }
 
     async getVideoList(url) {
-        const id = url.match(/video-([a-zA-Z0-9]+)/)?.[1] || url.split("/").pop();
-        const api = `https://www.eporner.com/api/v2/video/id/?id=${id}&format=json`;
-        const res = await new Client().get(api, this.getHeaders());
-        const v = JSON.parse(res.body);
-        const videos = [];
-        if (v.embed) {
-            videos.push({ url: v.embed, originalUrl: v.embed, quality: "Embed" });
+        const pageRes = await new Client().get(url, this.getHeaders());
+        const html = pageRes.body || "";
+        const hashMatch = html.match(/hash\s*[:=]\s*["']([\da-f]{32})/i);
+        const idMatch = url.match(/video-([a-zA-Z0-9]+)/) || html.match(/video-([a-zA-Z0-9]+)/);
+        const videoId = idMatch?.[1];
+
+        if (!videoId || !hashMatch) {
+            return [{ url: url, originalUrl: url, quality: "Auto (fallback)" }];
         }
-        // Try to get direct mp4s from the page as fallback
-        try {
-            const pageRes = await new Client().get(url, this.getHeaders());
-            const matches = pageRes.body.match(/https?:\/\/[^"'\s]+\.mp4[^"'\s]*/g) || [];
-            for (const src of [...new Set(matches)]) {
-                videos.push({
-                    url: src,
-                    originalUrl: src,
-                    quality: src.includes("2160") ? "2160p" : src.includes("1080") ? "1080p" : src.includes("720") ? "720p" : "Auto"
-                });
+
+        const hash = this.calcHash(hashMatch[1]);
+        const xhrUrl = `https://www.eporner.com/xhr/video/${videoId}?hash=${hash}&device=generic&domain=www.eporner.com&fallback=false`;
+        const xhrRes = await new Client().get(xhrUrl, this.getHeaders());
+        const data = JSON.parse(xhrRes.body || "{}");
+
+        const videos = [];
+        const sources = data.sources || {};
+        for (const kind of Object.keys(sources)) {
+            const formats = sources[kind];
+            if (!formats || typeof formats !== "object") continue;
+            for (const [formatId, info] of Object.entries(formats)) {
+                if (info && info.src && info.src.startsWith("http")) {
+                    const quality = formatId.includes("2160") ? "2160p" :
+                                   formatId.includes("1080") ? "1080p" :
+                                   formatId.includes("720") ? "720p" :
+                                   formatId.includes("480") ? "480p" : formatId;
+                    videos.push({
+                        url: info.src,
+                        originalUrl: info.src,
+                        quality: quality + (kind === "hls" ? " (HLS)" : "")
+                    });
+                }
             }
-        } catch (e) {}
+        }
+
         if (videos.length === 0) {
             videos.push({ url: url, originalUrl: url, quality: "Auto" });
         }
