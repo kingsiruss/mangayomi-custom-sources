@@ -2,17 +2,23 @@
   {
     "name": "Eporner",
     "id": 123456789,
-    "lang": "en",
     "baseUrl": "https://www.eporner.com",
-    "apiUrl": "",
-    "iconUrl": "https://www.eporner.com/favicon.ico",
+    "lang": "en",
     "typeSource": "single",
-    "itemType": 1,
-    "version": "1.0.0",
+    "iconUrl": "https://www.eporner.com/favicon.ico",
+    "dateFormat": "",
+    "dateFormatLocale": "",
     "isNsfw": true,
-    "isManga": false,
+    "hasCloudflare": false,
     "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/anime/src/en/eporner.js",
+    "apiUrl": "",
+    "version": "1.0.0",
+    "isManga": false,
+    "itemType": 1,
+    "isFullData": false,
+    "appMinVerReq": "0.5.0",
+    "additionalParams": "",
     "sourceCodeLanguage": 1,
-    "appMinVerReq": "0.5.0"
+    "notes": ""
   }
 ]
