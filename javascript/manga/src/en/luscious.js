@@ -6,7 +6,7 @@ const mangayomiSources = [{
     "iconUrl": "https://www.luscious.net/favicon.ico",
     "typeSource": "single",
     "itemType": 0,
-    "version": "1.0.2",
+    "version": "1.0.3",
     "isNsfw": true,
     "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/manga/src/en/luscious.js",
     "sourceCodeLanguage": 1
@@ -23,76 +23,132 @@ class DefaultExtension extends MProvider {
         };
     }
 
-    async graphql(operationName, query, variables = {}) {
-        const body = JSON.stringify({ operationName, query, variables });
+    getQueries() {
+        return {
+            AlbumListWithPeek: `query AlbumListWithPeek($input: AlbumListInput!) {
+                album {
+                    list(input: $input) {
+                        info {
+                            page
+                            has_next_page
+                            total_items
+                            total_pages
+                        }
+                        items {
+                            id
+                            title
+                            url
+                            cover { url }
+                        }
+                    }
+                }
+            }`,
+            AlbumGet: `query AlbumGet($id: ID!) {
+                album {
+                    get(id: $id) {
+                        ... on Album {
+                            id
+                            title
+                            description
+                        }
+                    }
+                }
+            }`,
+            AlbumListOwnPictures: `query AlbumListOwnPictures($input: PictureListInput!) {
+                picture {
+                    list(input: $input) {
+                        info {
+                            has_next_page
+                        }
+                        items {
+                            url_to_original
+                        }
+                    }
+                }
+            }`
+        };
+    }
+
+    async graphql(operationName, variables = {}) {
+        const queries = this.getQueries();
+        const query = queries[operationName];
+        if (!query) throw new Error("Unknown operation: " + operationName);
+
+        const body = JSON.stringify({
+            operationName: operationName,
+            query: query,
+            variables: variables
+        });
+
         const url = this.source.apiUrl + "?operationName=" + encodeURIComponent(operationName);
         const res = await new Client().post(url, this.getHeaders(), body);
-        const text = res.body || "";
-        if (text.trim().startsWith("<")) {
-            throw new Error("Luscious API returned HTML (blocked or wrong endpoint). Body starts with: " + text.substring(0, 80));
+        const text = (res && res.body) ? res.body : "";
+
+        if (!text || text.trim().startsWith("<")) {
+            throw new Error("Luscious API returned HTML or empty. Starts with: " + text.substring(0, 100));
         }
-        return JSON.parse(text);
+
+        const data = JSON.parse(text);
+        if (data.errors) {
+            throw new Error("GraphQL error: " + JSON.stringify(data.errors));
+        }
+        return data;
     }
 
     async getPopular(page) {
-        const query = `query AlbumListWithPeek($input: AlbumListInput!) {
-            album {
-                list(input: $input) {
-                    info { has_next_page }
-                    items { id title url cover { url } }
-                }
+        const variables = {
+            input: {
+                display: "rating_all_time",
+                page: page || 1,
+                filters: []
             }
-        }`;
-        const variables = { input: { display: "rating_all_time", page: page || 1, items_per_page: 30 } };
-        const data = await this.graphql("AlbumListWithPeek", query, variables);
+        };
+        const data = await this.graphql("AlbumListWithPeek", variables);
         return this.parseAlbums(data);
     }
 
     async getLatestUpdates(page) {
-        const query = `query AlbumListWithPeek($input: AlbumListInput!) {
-            album {
-                list(input: $input) {
-                    info { has_next_page }
-                    items { id title url cover { url } }
-                }
+        const variables = {
+            input: {
+                display: "date_newest",
+                page: page || 1,
+                filters: []
             }
-        }`;
-        const variables = { input: { display: "date_newest", page: page || 1, items_per_page: 30 } };
-        const data = await this.graphql("AlbumListWithPeek", query, variables);
+        };
+        const data = await this.graphql("AlbumListWithPeek", variables);
         return this.parseAlbums(data);
     }
 
     async search(query, page, filters) {
-        const q = `query AlbumListWithPeek($input: AlbumListInput!) {
-            album {
-                list(input: $input) {
-                    info { has_next_page }
-                    items { id title url cover { url } }
-                }
+        const variables = {
+            input: {
+                display: "search_score",
+                search_query: query,
+                page: page || 1,
+                filters: []
             }
-        }`;
-        const variables = { input: { display: "search_score", search_query: query, page: page || 1, items_per_page: 30 } };
-        const data = await this.graphql("AlbumListWithPeek", q, variables);
+        };
+        const data = await this.graphql("AlbumListWithPeek", variables);
         return this.parseAlbums(data);
     }
 
     parseAlbums(data) {
-        const items = data?.data?.album?.list?.items || [];
-        const hasNext = data?.data?.album?.list?.info?.has_next_page || false;
+        const listData = data?.data?.album?.list || {};
+        const items = listData.items || [];
+        const hasNext = listData.info?.has_next_page || false;
         const list = items.map(a => ({
             name: a.title || "Untitled",
-            link: a.url ? (a.url.startsWith("http") ? a.url : "https://www.luscious.net" + a.url) : `https://www.luscious.net/albums/${a.id}/`,
+            link: a.url ? (a.url.startsWith("http") ? a.url : "https://members.luscious.net" + a.url) : `https://members.luscious.net/albums/${a.id}/`,
             imageUrl: a.cover?.url || ""
         }));
         return { list, hasNextPage: hasNext };
     }
 
     async getDetail(url) {
-        const id = url.match(/(\d+)/)?.[1];
-        const query = `query AlbumGet($id: ID!) {
-            album { get(id: $id) { title description } }
-        }`;
-        const data = await this.graphql("AlbumGet", query, { id });
+        const id = (url.match(/(\d+)/) || [])[1];
+        if (!id) throw new Error("Could not extract album ID");
+
+        const data = await this.graphql("AlbumGet", { id });
         const album = data?.data?.album?.get || {};
         return {
             name: album.title || "Unknown",
@@ -103,24 +159,17 @@ class DefaultExtension extends MProvider {
     }
 
     async getPageList(url) {
-        const id = url.match(/(\d+)/)?.[1];
-        const query = `query PictureList($input: PictureListInput!) {
-            picture {
-                list(input: $input) {
-                    items { url_to_original }
-                    info { has_next_page }
-                }
-            }
-        }`;
+        const id = (url.match(/(\d+)/) || [])[1];
+        if (!id) return [];
+
         const variables = {
             input: {
                 filters: [{ name: "album_id", value: id }],
                 display: "position",
-                page: 1,
-                items_per_page: 100
+                page: 1
             }
         };
-        const data = await this.graphql("PictureList", query, variables);
+        const data = await this.graphql("AlbumListOwnPictures", variables);
         const pics = data?.data?.picture?.list?.items || [];
         return pics.map(p => p.url_to_original).filter(Boolean);
     }
