@@ -8,7 +8,7 @@ const mangayomiSources = [{
     "itemType": 0,
     "version": "1.0.6",
     "isNsfw": true,
-    "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/manga/src/en/luscious.js",
+    "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/manga/src/en/luscious.js?v=106",
     "sourceCodeLanguage": 1
 }];
 
