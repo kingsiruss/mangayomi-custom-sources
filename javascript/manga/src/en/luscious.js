@@ -6,9 +6,9 @@ const mangayomiSources = [{
     "iconUrl": "https://www.luscious.net/favicon.ico",
     "typeSource": "single",
     "itemType": 0,
-    "version": "1.0.6",
+    "version": "1.0.7",
     "isNsfw": true,
-    "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/manga/src/en/luscious.js?v=106",
+    "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/manga/src/en/luscious.js?v=107",
     "sourceCodeLanguage": 1
 }];
 
@@ -41,6 +41,8 @@ class DefaultExtension extends MProvider {
                     list(input: $input) {
                         items { 
                             url_to_original 
+                            url_to_video
+                            is_animated
                             thumbnails { url }
                         }
                         info { has_next_page page total_pages total_items }
@@ -127,7 +129,7 @@ class DefaultExtension extends MProvider {
         const allPages = [];
         let page = 1;
         let hasNext = true;
-        const maxPages = 50;
+        const maxPages = 40;
 
         while (hasNext && page <= maxPages) {
             const vars = {
@@ -143,7 +145,15 @@ class DefaultExtension extends MProvider {
             const items = list.items || [];
 
             for (const p of items) {
-                const img = p.url_to_original || (p.thumbnails && p.thumbnails[0] && p.thumbnails[0].url);
+                // Prefer animated version when available
+                let img = null;
+                if (p.is_animated && p.url_to_video) {
+                    img = p.url_to_video;
+                } else if (p.url_to_original) {
+                    img = p.url_to_original;
+                } else if (p.thumbnails && p.thumbnails[0] && p.thumbnails[0].url) {
+                    img = p.thumbnails[0].url;
+                }
                 if (img) allPages.push(img);
             }
 
