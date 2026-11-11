@@ -6,7 +6,7 @@ const mangayomiSources = [{
     "iconUrl": "https://www.luscious.net/favicon.ico",
     "typeSource": "single",
     "itemType": 0,
-    "version": "1.0.5",
+    "version": "1.0.6",
     "isNsfw": true,
     "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/manga/src/en/luscious.js",
     "sourceCodeLanguage": 1
@@ -34,13 +34,16 @@ class DefaultExtension extends MProvider {
                 }
             }`,
             AlbumGet: `query AlbumGet($id: ID!) {
-                album { get(id: $id) { ... on Album { id title description } } }
+                album { get(id: $id) { ... on Album { id title description number_of_pictures } } }
             }`,
             AlbumListOwnPictures: `query AlbumListOwnPictures($input: PictureListInput!) {
                 picture {
                     list(input: $input) {
-                        items { url_to_original }
-                        info { has_next_page page total_pages }
+                        items { 
+                            url_to_original 
+                            thumbnails { url }
+                        }
+                        info { has_next_page page total_pages total_items }
                     }
                 }
             }`
@@ -60,12 +63,12 @@ class DefaultExtension extends MProvider {
         const text = res.body || "";
 
         if (!text || text.trim().startsWith("<")) {
-            throw new Error("Bad response: " + text.substring(0, 100));
+            throw new Error("Bad response: " + text.substring(0, 120));
         }
 
         const data = JSON.parse(text);
         if (data.errors) {
-            throw new Error("GQL: " + JSON.stringify(data.errors).substring(0, 300));
+            throw new Error("GQL: " + JSON.stringify(data.errors).substring(0, 350));
         }
         return data;
     }
@@ -100,33 +103,54 @@ class DefaultExtension extends MProvider {
     }
 
     async getDetail(url) {
-        const id = (url.match(/(\d+)/) || [])[1];
-        if (!id) return { name: "Error", chapters: [] };
+        const id = this.extractId(url);
+        if (!id) return { name: "Error - no ID", chapters: [] };
         const data = await this.graphql("AlbumGet", { id });
         const album = data?.data?.album?.get || {};
         return {
             name: album.title || "Unknown",
             description: album.description || "",
             status: 5,
-            chapters: [{ name: "Album", url: url, dateUpload: Date.now().toString() }]
+            chapters: [{ name: "Album (" + (album.number_of_pictures || "?") + " pics)", url: url, dateUpload: Date.now().toString() }]
         };
     }
 
+    extractId(url) {
+        const m = url.match(/_(\d+)/) || url.match(/\/(\d+)\/?$/);
+        return m ? m[1] : null;
+    }
+
     async getPageList(url) {
-        const id = (url.match(/(\d+)/) || [])[1];
+        const id = this.extractId(url);
         if (!id) return [];
 
-        // Use a valid display value for pictures
-        const vars = { 
-            input: { 
-                filters: [{ name: "album_id", value: id }], 
-                display: "date_newest", 
-                page: 1 
-            } 
-        };
+        const allPages = [];
+        let page = 1;
+        let hasNext = true;
+        const maxPages = 50;
 
-        const data = await this.graphql("AlbumListOwnPictures", vars);
-        const items = data?.data?.picture?.list?.items || [];
-        return items.map(p => p.url_to_original).filter(Boolean);
+        while (hasNext && page <= maxPages) {
+            const vars = {
+                input: {
+                    filters: [{ name: "album_id", value: id }],
+                    display: "date_newest",
+                    page: page
+                }
+            };
+
+            const data = await this.graphql("AlbumListOwnPictures", vars);
+            const list = data?.data?.picture?.list || {};
+            const items = list.items || [];
+
+            for (const p of items) {
+                const img = p.url_to_original || (p.thumbnails && p.thumbnails[0] && p.thumbnails[0].url);
+                if (img) allPages.push(img);
+            }
+
+            hasNext = !!list.info?.has_next_page;
+            page++;
+        }
+
+        return allPages;
     }
 }
