@@ -10,7 +10,7 @@
     "dateFormatLocale": "",
     "isNsfw": true,
     "hasCloudflare": false,
-    "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/manga/src/en/luscious.js?v=107",
+    "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/manga/src/en/luscious_v107.js",
     "apiUrl": "https://members.luscious.net/graphql/nobatch/",
     "version": "1.0.7",
     "isManga": true,
