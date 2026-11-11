@@ -6,7 +6,7 @@ const mangayomiSources = [{
     "iconUrl": "https://www.luscious.net/favicon.ico",
     "typeSource": "single",
     "itemType": 0,
-    "version": "1.0.4",
+    "version": "1.0.5",
     "isNsfw": true,
     "sourceCodeUrl": "https://raw.githubusercontent.com/kingsiruss/mangayomi-custom-sources/main/javascript/manga/src/en/luscious.js",
     "sourceCodeLanguage": 1
@@ -40,7 +40,7 @@ class DefaultExtension extends MProvider {
                 picture {
                     list(input: $input) {
                         items { url_to_original }
-                        info { has_next_page }
+                        info { has_next_page page total_pages }
                     }
                 }
             }`
@@ -60,12 +60,12 @@ class DefaultExtension extends MProvider {
         const text = res.body || "";
 
         if (!text || text.trim().startsWith("<")) {
-            throw new Error("Bad response: " + text.substring(0, 80));
+            throw new Error("Bad response: " + text.substring(0, 100));
         }
 
         const data = JSON.parse(text);
         if (data.errors) {
-            throw new Error("GQL: " + JSON.stringify(data.errors).substring(0, 200));
+            throw new Error("GQL: " + JSON.stringify(data.errors).substring(0, 300));
         }
         return data;
     }
@@ -115,7 +115,16 @@ class DefaultExtension extends MProvider {
     async getPageList(url) {
         const id = (url.match(/(\d+)/) || [])[1];
         if (!id) return [];
-        const vars = { input: { filters: [{ name: "album_id", value: id }], display: "position", page: 1 } };
+
+        // Use a valid display value for pictures
+        const vars = { 
+            input: { 
+                filters: [{ name: "album_id", value: id }], 
+                display: "date_newest", 
+                page: 1 
+            } 
+        };
+
         const data = await this.graphql("AlbumListOwnPictures", vars);
         const items = data?.data?.picture?.list?.items || [];
         return items.map(p => p.url_to_original).filter(Boolean);
